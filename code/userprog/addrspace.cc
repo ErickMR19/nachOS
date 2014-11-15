@@ -141,7 +141,7 @@ AddrSpace::AddrSpace(OpenFile *executable)
     }
 
     #endif
-    
+
     // segmento de pila
 	int paginasPila = divRoundUp(UserStackSize, PageSize);
             DEBUG('d', "paginasPila: %i \n",paginasPila);
@@ -252,6 +252,8 @@ void AddrSpace::SaveState()
 
 void AddrSpace::RestoreState()
 {
-    machine->pageTable = pageTable;
-    machine->pageTableSize = numPages;
+	#ifndef VM
+	machine->pageTable = pageTable;
+	machine->pageTableSize = numPages;
+	#endif
 }

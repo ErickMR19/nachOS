@@ -533,10 +533,15 @@ void ExceptionHandler(ExceptionType which)
                 break;
             }
             break;
+        case PageFaultException:
+            DEBUG('P',"Ha ocurrido un PageFaultException.\n");
+            ASSERT(FALSE);
         default:
             printf( "Unexpected exception %d\n", which );
             ASSERT(FALSE);
         break;
+
+
 
     }
 }
