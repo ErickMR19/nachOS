@@ -95,7 +95,13 @@ AddrSpace::AddrSpace(OpenFile *executable)
         ASSERT(indice != -1);
     		pageTable[i].virtualPage = indice;	// for now, virtual page # = phys page #
     		pageTable[i].physicalPage = indice;
-    		pageTable[i].valid = true;
+    		
+    		#ifdef VM
+    			pageTable[i].valid = false;
+    		#else
+    			pageTable[i].valid = true;
+    		#endif
+
     		pageTable[i].use = false;
     		pageTable[i].dirty = false;
     		pageTable[i].readOnly = false;  // if the code segment was entirely on
@@ -108,6 +114,8 @@ AddrSpace::AddrSpace(OpenFile *executable)
 // and the stack segment
 
 	// copia el segmento de codigo desde el archivo
+	
+    #ifndef VM
 	i = 0;
 	int paginasCodigo = divRoundUp(noffH.code.size, PageSize);
         DEBUG('d', "paginasCodigo: %i \n",paginasCodigo);
@@ -131,6 +139,9 @@ AddrSpace::AddrSpace(OpenFile *executable)
 				PageSize, noffH.initData.inFileAddr+i*PageSize);
     	}
     }
+
+    #endif
+    
     // segmento de pila
 	int paginasPila = divRoundUp(UserStackSize, PageSize);
             DEBUG('d', "paginasPila: %i \n",paginasPila);
