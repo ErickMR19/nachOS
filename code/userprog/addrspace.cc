@@ -257,3 +257,19 @@ void AddrSpace::RestoreState()
 	machine->pageTableSize = numPages;
 	#endif
 }
+
+void AddrSpace::CargarDespuesDePGException(int addressPageFault)
+{
+    int paginaFaltante = addressPageFault / PageSize;
+
+    if(pageTable[paginaFaltante].valid == false && pageTable[paginaFaltante].dirty == true)
+    {
+        OpenFile* workingSwap = fileSystem->Open("SWAP");
+        int initialFind = mybit->Find();
+        workingSwap->ReadAt(&(machine->mainMemory[PageSize * paginaFaltante]), PageSize * initialFind);
+
+        pageTable[paginaFaltante].valid = true;
+        pageTable[paginaFaltante].physicalPage = initialFind;
+        coreMap[initialFind].virtualPage = paginaFaltante;
+    }
+}
