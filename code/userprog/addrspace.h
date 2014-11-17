@@ -35,9 +35,9 @@ class AddrSpace {
   private:
     TranslationEntry *pageTable;	// Assume linear page table translation
 					// for now!
-    unsigned int numPages;		// Number of pages in the virtual
-					// address space
-    TranslationEntry +coreMap;
+    unsigned int numPages;		// Number of pages in the virtual address space
+    unsigned int numeroPaginasInicializadas;
+    TranslationEntry *tpi;
 };
 
 #endif // ADDRSPACE_H

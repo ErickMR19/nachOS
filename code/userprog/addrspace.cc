@@ -60,6 +60,7 @@ SwapHeader (NoffHeader *noffH)
 
 AddrSpace::AddrSpace(OpenFile *executable)
 {
+    tpi = new TranslationEntry[NumPhysPages];
     NoffHeader noffH;
     unsigned int size;
     unsigned int i;
@@ -93,9 +94,9 @@ AddrSpace::AddrSpace(OpenFile *executable)
     	// busca una posición libre
     	indice = MapaMemoria.Find();
         ASSERT(indice != -1);
-    		pageTable[i].virtualPage = indice;	// for now, virtual page # = phys page #
-    		pageTable[i].physicalPage = indice;
-    		
+    		pageTable[i].virtualPage = indice;
+    		pageTable[i].physicalPage = -1; //páginas invalidas
+
     		#ifdef VM
     			pageTable[i].valid = false;
     		#else
@@ -114,31 +115,33 @@ AddrSpace::AddrSpace(OpenFile *executable)
 // and the stack segment
 
 	// copia el segmento de codigo desde el archivo
-	
+    int paginasCodigo = divRoundUp(noffH.code.size, PageSize);
+    DEBUG('d', "paginasCodigo: %i \n",paginasCodigo);
+    int paginasDatos = divRoundUp(noffH.initData.size, PageSize);
+    DEBUG('d', "paginasDatos: %i \n",paginasDatos);
+    numeroPaginasInicializadas = paginasCodigo + paginasdatos;
     #ifndef VM
-	i = 0;
-	int paginasCodigo = divRoundUp(noffH.code.size, PageSize);
-        DEBUG('d', "paginasCodigo: %i \n",paginasCodigo);
-	int paginaMemoria;
-    if (noffH.code.size > 0) {
-    	for(i=0; i < paginasCodigo; ++i){
-    		paginaMemoria = pageTable[i].physicalPage;
-		DEBUG('d', "code... i(%i) pm(%i)\n",i,paginaMemoria);
-	        executable->ReadAt(&(machine->mainMemory[paginaMemoria*PageSize]),
-				PageSize, noffH.code.inFileAddr+i*PageSize);
-    	}
-    }
+  	i = 0;
+  	int paginaMemoria;
+      if (noffH.code.size > 0) {
+      	for(i=0; i < paginasCodigo; ++i){
+      		paginaMemoria = pageTable[i].physicalPage;
+  		DEBUG('d', "code... i(%i) pm(%i)\n",i,paginaMemoria);
+  	        executable->ReadAt(&(machine->mainMemory[paginaMemoria*PageSize]),
+  				PageSize, noffH.code.inFileAddr+i*PageSize);
+      	}
+      }
     // copia el segmento de datos desde el archivo
     int paginasDatos = divRoundUp(noffH.initData.size, PageSize);
-        DEBUG('d', "paginasDatos: %i \n",paginasDatos);
-	if (noffH.initData.size > 0) {
-    	for(i=0; i < paginasDatos; ++i){
-    		paginaMemoria = pageTable[i+paginasCodigo].physicalPage;
-		DEBUG('d', "datos... i(%i) pm(%i)\n",i,paginaMemoria);
-	        executable->ReadAt(&(machine->mainMemory[paginaMemoria*PageSize]),
-				PageSize, noffH.initData.inFileAddr+i*PageSize);
-    	}
-    }
+    DEBUG('d', "paginasDatos: %i \n",paginasDatos);
+  	if (noffH.initData.size > 0) {
+      	for(i=0; i < paginasDatos; ++i){
+      		paginaMemoria = pageTable[i+paginasCodigo].physicalPage;
+  		DEBUG('d', "datos... i(%i) pm(%i)\n",i,paginaMemoria);
+  	        executable->ReadAt(&(machine->mainMemory[paginaMemoria*PageSize]),
+  				PageSize, noffH.initData.inFileAddr+i*PageSize);
+      	}
+      }
 
     #endif
 
@@ -257,11 +260,76 @@ void AddrSpace::RestoreState()
 	machine->pageTableSize = numPages;
 	#endif
 }
+int AddrSpace::escogerPaginaDelTLB(){
+    srand( TIME(0) );
+    bool buscando = true;
+    for(int i = 0; i < TLBSize; ++i){
+      if(! machine->tlb[i].valid ) // si hay alguna sin usar, utilizar esa
+        return i;
+    }
+    for(int i = 0; i < TLBSize; ++i){
+      if(! machine->tlb[i].dirty ) // si hay alguna sin que no este "dirty", usar esa
+        return i;
+    }
+    i = rand() % TLBSize;
+    pageTable[ tlb[i].virtualPage ].dirty = true; // indico que la pagina que se va a quitar del TLB estaba "dirty"
+}
+void AddrSpace::copiarAlTLB(int pagPageTable, int pagTLB){
+  machine->tlb[pagTLB].virtualPage = pageTable[pagPageTable].virtualPage;
+  machine->tlb[pagTLB].physicalPage = pageTable[pagPageTable].physicalPage;
+  machine->tlb[pagTLB].dirty = pageTable[pagPageTable].dirty;
+  machine->tlb[pagTLB].valid = true;
+  machine->tlb[pagTLB].use = true;
+}
+int ultimaPosicionAsignada=-1;
 
+int AddrSpace::encontrarPosicionDeMemoria(){
+  indice = MapaMemoria.Find();
+  if (indice == -1){ // si el indice es -1 no había espacio
+    //inicio SecondChance
+      int encontrado = false;
+      indice = ultimaPosicionAsignada+1;
+      while(! encontrado){
+        if( tpi[indice%NumPhysPages].use ){
+          tpi[indice%NumPhysPages].use = false;
+        }
+        else{
+          indice = indice%NumPhysPages;
+          tpi[indice].use = true;
+          if( pageTable[ tpi[indice].virtualPage ].dirty ){
+            copiarAlSWAP( tpi[indice].virtualPage );
+          }
+          pageTable[ tpi[indice].virtualPage ].valid = false;
+          pageTable[ tpi[indice].virtualPage ].use = false;
+        }
+      }
+  }
+  ultimaPosicionAsignada = indice;
+  return indice;
+}
 void AddrSpace::CargarDespuesDePGException(int addressPageFault)
 {
     int paginaFaltante = addressPageFault / PageSize;
-
+    int paginaTLB = -1;
+    if(pageTable[paginaFaltante].valid){ // está en memoria
+      paginaTLB = escogerPaginaDelTLB();
+      copiarAlTLB(paginaFaltante,paginaTLB);
+    }
+    else{ // no está en memoria
+      //TODO: encontrar una posicion de memoria
+      if(pageTable[paginaFaltante].dirty){ // la pagina está sucia
+        //TODO: cargar del SWAP
+      }
+      else {
+        if(paginaFaltante < numeroPaginasInicializadas){ // pagina de datos inicializados
+          //TODO: cargar desde el ejecutable
+        }
+        else{ // pagina de datos no inicializados
+          //TODO: limpiar el frame
+        }
+      }
+    }
+/*
     if(pageTable[paginaFaltante].valid == false && pageTable[paginaFaltante].dirty == true)
     {
         OpenFile* workingSwap = fileSystem->Open("SWAP");
@@ -271,5 +339,5 @@ void AddrSpace::CargarDespuesDePGException(int addressPageFault)
         pageTable[paginaFaltante].valid = true;
         pageTable[paginaFaltante].physicalPage = initialFind;
         coreMap[initialFind].virtualPage = paginaFaltante;
-    }
+    }*/
 }
