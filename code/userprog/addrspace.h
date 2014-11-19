@@ -37,7 +37,9 @@ class AddrSpace {
 					// for now!
     unsigned int numPages;		// Number of pages in the virtual address space
     unsigned int numeroPaginasInicializadas;
+    unsigned int paginasCodigo
     TranslationEntry *tpi;
+    OpenFile *ejecutable;
 };
 
 #endif // ADDRSPACE_H
