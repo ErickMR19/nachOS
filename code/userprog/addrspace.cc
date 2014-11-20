@@ -264,6 +264,7 @@ void AddrSpace::RestoreState()
 	#endif
 }
 
+#ifdef VM
 int AddrSpace::escogerPaginaDelTLB(){
     srand( TIME(0) );
     bool buscando = true;
@@ -337,7 +338,6 @@ void AddrSpace::CargarDespuesDePGException(int addressPageFault)
           else{ // es del segmento de datos inicializados
               paginaMemoria = pageTable[i+paginasCodigo].physicalPage;
               executable->ReadAt(&(machine->mainMemory[posicionDeMemoria*PageSize]), PageSize, noffH.initData.inFileAddr+i*PageSize);
-            }
           }
         }
         else{ // pagina de datos no inicializados y no está sucia
@@ -361,3 +361,4 @@ void AddrSpace::CargarDespuesDePGException(int addressPageFault)
         coreMap[initialFind].virtualPage = paginaFaltante;
     }*/
 }
+#endif
