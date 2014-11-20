@@ -42,7 +42,9 @@ class AddrSpace {
     OpenFile *ejecutable;
     NoffHeader noffH;
     #ifdef VM
+  public:
     void CargarDespuesDePFException(int addressPageFault);
+  private:
     void actualizarTLB(int paginaFaltante);
     int encontrarPosicionDeMemoria();
     void copiarAlTLB(int pagPageTable, int pagTLB);
