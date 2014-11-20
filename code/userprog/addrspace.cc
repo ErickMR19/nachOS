@@ -339,7 +339,6 @@ void AddrSpace::CargarDespuesDePGException(int addressPageFault)
               ejecutable->ReadAt(&(machine->mainMemory[posicionDeMemoria*PageSize]), PageSize, noffH.code.inFileAddr+paginaFaltante*PageSize);
           }
           else{ // es del segmento de datos inicializados
-              paginaMemoria = pageTable[i+paginasCodigo].physicalPage;
               ejecutable->ReadAt(&(machine->mainMemory[posicionDeMemoria*PageSize]), PageSize, noffH.initData.inFileAddr+(paginaFaltante-paginasCodigo)*PageSize);
           }
         }
