@@ -20,7 +20,6 @@
 #include "addrspace.h"
 #include <cstdio>
 #include <ctime>
-extern Table
 
 //----------------------------------------------------------------------
 // SwapHeader
@@ -281,6 +280,7 @@ int AddrSpace::escogerPaginaDelTLB(){
     }
     i = rand() % TLBSize;
     pageTable[ machine->tlb[i].virtualPage ].dirty = true; // indico que la pagina que se va a quitar del TLB estaba "dirty"
+    return i;
 }
 void AddrSpace::copiarAlTLB(int pagPageTable, int pagTLB){
   machine->tlb[pagTLB].virtualPage = pageTable[pagPageTable].virtualPage;
@@ -336,11 +336,11 @@ void AddrSpace::CargarDespuesDePGException(int addressPageFault)
       else {
         if(paginaFaltante < numeroPaginasInicializadas){ // pagina de datos inicializados
           if (paginaFaltante < paginasCodigo) { //verifica si es el del segmento de codigo
-              ejecutable->ReadAt(&(machine->mainMemory[posicionDeMemoria*PageSize]), PageSize, noffH.code.inFileAddr+i*PageSize);
+              ejecutable->ReadAt(&(machine->mainMemory[posicionDeMemoria*PageSize]), PageSize, noffH.code.inFileAddr+paginaFaltante*PageSize);
           }
           else{ // es del segmento de datos inicializados
               paginaMemoria = pageTable[i+paginasCodigo].physicalPage;
-              ejecutable->ReadAt(&(machine->mainMemory[posicionDeMemoria*PageSize]), PageSize, noffH.initData.inFileAddr+i*PageSize);
+              ejecutable->ReadAt(&(machine->mainMemory[posicionDeMemoria*PageSize]), PageSize, noffH.initData.inFileAddr+(paginaFaltante-paginasCodigo)*PageSize);
           }
         }
         else{ // pagina de datos no inicializados y no está sucia
