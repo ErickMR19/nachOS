@@ -322,7 +322,7 @@ void AddrSpace::actualizarTLB(int paginaFaltante){
     int paginaTLB = escogerPaginaDelTLB();
     copiarAlTLB(paginaFaltante,paginaTLB);
 }
-void AddrSpace::CargarDespuesDePGException(int addressPageFault)
+void AddrSpace::CargarDespuesDePFException(int addressPageFault)
 {
     unsigned int paginaFaltante = addressPageFault / PageSize;
     if(pageTable[paginaFaltante].valid){ // está en memoria
