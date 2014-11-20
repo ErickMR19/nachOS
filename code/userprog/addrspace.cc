@@ -18,7 +18,9 @@
 #include "copyright.h"
 #include "system.h"
 #include "addrspace.h"
-#include <stdio.h>
+#include <cstdio>
+#include <ctime>
+extern Table
 
 //----------------------------------------------------------------------
 // SwapHeader
@@ -266,18 +268,19 @@ void AddrSpace::RestoreState()
 
 #ifdef VM
 int AddrSpace::escogerPaginaDelTLB(){
-    srand( TIME(0) );
+    srand( time(NULL) );
     bool buscando = true;
-    for(int i = 0; i < TLBSize; ++i){
+    int i;
+    for(i = 0; i < TLBSize; ++i){
       if(! machine->tlb[i].valid ) // si hay alguna sin usar, utilizar esa
         return i;
     }
-    for(int i = 0; i < TLBSize; ++i){
+    for(i = 0; i < TLBSize; ++i){
       if(! machine->tlb[i].dirty ) // si hay alguna sin que no este "dirty", usar esa
         return i;
     }
     i = rand() % TLBSize;
-    pageTable[ tlb[i].virtualPage ].dirty = true; // indico que la pagina que se va a quitar del TLB estaba "dirty"
+    pageTable[ machine->tlb[i].virtualPage ].dirty = true; // indico que la pagina que se va a quitar del TLB estaba "dirty"
 }
 void AddrSpace::copiarAlTLB(int pagPageTable, int pagTLB){
   machine->tlb[pagTLB].virtualPage = pageTable[pagPageTable].virtualPage;
@@ -289,7 +292,7 @@ void AddrSpace::copiarAlTLB(int pagPageTable, int pagTLB){
 int ultimaPosicionAsignada=-1;
 
 int AddrSpace::encontrarPosicionDeMemoria(){
-  indice = MapaMemoria.Find();
+  int indice = MapaMemoria.Find();
   if (indice == -1){ // si el indice es -1 no hay espacio disponible
     //inicio SecondChance
       int encontrado = false;
@@ -303,7 +306,7 @@ int AddrSpace::encontrarPosicionDeMemoria(){
           encontrado = true;
           indice = indice%NumPhysPages;
           if( pageTable[ tpi[indice].virtualPage ].dirty ){
-            copiarAlSWAP( tpi[indice].virtualPage );
+            //TODO: copiarAlSWAP( tpi[indice].virtualPage );
           }
           pageTable[ tpi[indice].virtualPage ].physicalPage = -1;
           pageTable[ tpi[indice].virtualPage ].valid = false;
@@ -321,7 +324,7 @@ void AddrSpace::actualizarTLB(int paginaFaltante){
 }
 void AddrSpace::CargarDespuesDePGException(int addressPageFault)
 {
-    int paginaFaltante = addressPageFault / PageSize;
+    unsigned int paginaFaltante = addressPageFault / PageSize;
     if(pageTable[paginaFaltante].valid){ // está en memoria
       actualizarTLB(paginaFaltante);
     }
@@ -333,11 +336,11 @@ void AddrSpace::CargarDespuesDePGException(int addressPageFault)
       else {
         if(paginaFaltante < numeroPaginasInicializadas){ // pagina de datos inicializados
           if (paginaFaltante < paginasCodigo) { //verifica si es el del segmento de codigo
-              executable->ReadAt(&(machine->mainMemory[posicionDeMemoria*PageSize]), PageSize, noffH.code.inFileAddr+i*PageSize);
+              ejecutable->ReadAt(&(machine->mainMemory[posicionDeMemoria*PageSize]), PageSize, noffH.code.inFileAddr+i*PageSize);
           }
           else{ // es del segmento de datos inicializados
               paginaMemoria = pageTable[i+paginasCodigo].physicalPage;
-              executable->ReadAt(&(machine->mainMemory[posicionDeMemoria*PageSize]), PageSize, noffH.initData.inFileAddr+i*PageSize);
+              ejecutable->ReadAt(&(machine->mainMemory[posicionDeMemoria*PageSize]), PageSize, noffH.initData.inFileAddr+i*PageSize);
           }
         }
         else{ // pagina de datos no inicializados y no está sucia
@@ -345,7 +348,7 @@ void AddrSpace::CargarDespuesDePGException(int addressPageFault)
           pageTable[paginaFaltante].physicalPage = posicionDeMemoria;
           pageTable[paginaFaltante].valid = true;
           pageTable[paginaFaltante].use = true;
-          copiarAlTLB(paginaFaltante);
+          actualizarTLB(paginaFaltante);
         }
       }
     }
