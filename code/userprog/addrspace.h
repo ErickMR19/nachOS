@@ -37,9 +37,16 @@ class AddrSpace {
 					// for now!
     unsigned int numPages;		// Number of pages in the virtual address space
     unsigned int numeroPaginasInicializadas;
-    unsigned int paginasCodigo
-    TranslationEntry *tpi;
+    unsigned int paginasCodigo;
     OpenFile *ejecutable;
+    NoffHeader noffH;
+    #ifdef VM
+    void CargarDespuesDePGException(int addressPageFault);
+    void actualizarTLB(int paginaFaltante);
+    int encontrarPosicionDeMemoria();
+    void copiarAlTLB(int pagPageTable, int pagTLB);
+    int escogerPaginaDelTLB();
+    #endif
 };
 
 #endif // ADDRSPACE_H

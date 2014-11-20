@@ -57,11 +57,9 @@ SwapHeader (NoffHeader *noffH)
 AddrSpace::AddrSpace(OpenFile *executable)
   :ejecutable(executable)
 {
-    tpi = new TranslationEntry[NumPhysPages];
-    NoffHeader noffH;
     unsigned int size;
     unsigned int i;
-    executable->ReadAt((char *)&noffH, sizeof(noffH), 0);
+    ejecutable->ReadAt((char *)&noffH, sizeof(noffH), 0);
     if ((noffH.noffMagic != NOFFMAGIC) && (WordToHost(noffH.noffMagic) == NOFFMAGIC))
     	SwapHeader(&noffH);
 
@@ -75,17 +73,22 @@ AddrSpace::AddrSpace(OpenFile *executable)
 						// to leave room for the stack
     numPages = divRoundUp(size, PageSize);
     size = numPages * PageSize;
+    DEBUG('d', "Initializing address space, num pages %d, size %d\n", numPages, size);
 
+
+    #ifndef VM //estas verficicaciones no tienen sentido cuando se trabaja con memoria virtual
     ASSERT(numPages <= NumPhysPages);		// check we're not trying
 						// to run anything too big --
 						// at least until we have
                         // virtual memorys
 
-    DEBUG('d', "Initializing address space, num pages %d, size %d\n",
-					numPages, size);
+
 	// first, set up the translation
-    pageTable = new TranslationEntry[numPages];
-	// ASSERT(numPages <= MapaMemoria.NumClear()); ya no es necesario que se cumpla
+	 ASSERT(numPages <= MapaMemoria.NumClear()); ya no es necesario que se cumpla
+  #endif
+
+
+  pageTable = new TranslationEntry[numPages];
 	int indice = 0;
 	for (i = 0; i < numPages; i++){
     	// busca una posición libre
@@ -115,6 +118,7 @@ AddrSpace::AddrSpace(OpenFile *executable)
 	// copia el segmento de codigo desde el archivo
     paginasCodigo = divRoundUp(noffH.code.size, PageSize);
     DEBUG('d', "paginasCodigo: %i \n",paginasCodigo);
+    paginasCodigo = divRoundUp(noffH.code.size, PageSize);
     int paginasDatos = divRoundUp(noffH.initData.size, PageSize);
     DEBUG('d', "paginasDatos: %i \n",paginasDatos);
     numeroPaginasInicializadas = paginasCodigo + paginasDatos;
@@ -130,7 +134,6 @@ AddrSpace::AddrSpace(OpenFile *executable)
       	}
       }
     // copia el segmento de datos desde el archivo
-    int paginasDatos = divRoundUp(noffH.initData.size, PageSize);
     DEBUG('d', "paginasDatos: %i \n",paginasDatos);
   	if (noffH.initData.size > 0) {
       	for(i=0; i < paginasDatos; ++i){
@@ -153,6 +156,7 @@ AddrSpace::AddrSpace(OpenFile *executable)
 }
 
 AddrSpace::AddrSpace(AddrSpace *addrSpace)
+: ejecutable(NULL)
 {
 	int paginasPila = divRoundUp(UserStackSize, PageSize);
 	numPages = addrSpace->numPages;
@@ -198,6 +202,8 @@ AddrSpace::~AddrSpace()
 		MapaMemoria.Clear(pageTable[i].physicalPage);
 	}
 	delete pageTable;
+  if(ejecutable)
+    delete ejecutable;
 }
 
 //----------------------------------------------------------------------
@@ -258,6 +264,7 @@ void AddrSpace::RestoreState()
 	machine->pageTableSize = numPages;
 	#endif
 }
+
 int AddrSpace::escogerPaginaDelTLB(){
     srand( TIME(0) );
     bool buscando = true;
@@ -286,8 +293,9 @@ int AddrSpace::encontrarPosicionDeMemoria(){
   if (indice == -1){ // si el indice es -1 no hay espacio disponible
     //inicio SecondChance
       int encontrado = false;
-      indice = ultimaPosicionAsignada+1;
+      indice = ultimaPosicionAsignada;
       while(! encontrado){
+        ++indice;
         if( tpi[indice%NumPhysPages].use ){
           tpi[indice%NumPhysPages].use = false;
         }
@@ -307,7 +315,7 @@ int AddrSpace::encontrarPosicionDeMemoria(){
   ultimaPosicionAsignada = indice;
   return indice;
 }
-void actualizarTLB(int paginaFaltante){
+void AddrSpace::actualizarTLB(int paginaFaltante){
     int paginaTLB = escogerPaginaDelTLB();
     copiarAlTLB(paginaFaltante,paginaTLB);
 }
@@ -324,7 +332,14 @@ void AddrSpace::CargarDespuesDePGException(int addressPageFault)
       }
       else {
         if(paginaFaltante < numeroPaginasInicializadas){ // pagina de datos inicializados
-          //TODO: cargar desde el ejecutable
+          if (paginaFaltante < paginasCodigo) { //verifica si es el del segmento de codigo
+              executable->ReadAt(&(machine->mainMemory[posicionDeMemoria*PageSize]), PageSize, noffH.code.inFileAddr+i*PageSize);
+          }
+          else{ // es del segmento de datos inicializados
+              paginaMemoria = pageTable[i+paginasCodigo].physicalPage;
+              executable->ReadAt(&(machine->mainMemory[posicionDeMemoria*PageSize]), PageSize, noffH.initData.inFileAddr+i*PageSize);
+            }
+          }
         }
         else{ // pagina de datos no inicializados y no está sucia
           bzero(&(machine->mainMemory[posicionDeMemoria * PageSize]), PageSize);

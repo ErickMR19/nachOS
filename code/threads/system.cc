@@ -8,6 +8,7 @@
 #include "copyright.h"
 #include "system.h"
 #include "preemptive.h"
+#include "machine.h"
 
 // This defines *all* of the global data structures used by Nachos.
 // These are all initialized and de-allocated by this file.
@@ -38,6 +39,10 @@ BitMap MapaMemoria(NumPhysPages);
 BitMap * openFilesMap;
 tablaControladoraSemaforos *tablasSemaforos;
 tablaIndicadoresProcesos *tablaProcesos;
+#endif
+
+#ifdef VM
+TranslationEntry *tpi;
 #endif
 
 #ifdef NETWORK
@@ -187,6 +192,10 @@ Initialize(int argc, char **argv)
     tablaProcesos = new tablaIndicadoresProcesos();
 #endif
 
+#ifdef VM
+    tpi = new TranslationEntry[NumPhysPages];
+#endif
+
 #ifdef FILESYS
     synchDisk = new SynchDisk("DISK");
 #endif
@@ -221,6 +230,10 @@ Cleanup()
     delete tablasSemaforos;
     delete tablaProcesos;
     delete machine;
+#endif
+
+#ifdef VM
+    delete tpi;
 #endif
 
 #ifdef FILESYS_NEEDED

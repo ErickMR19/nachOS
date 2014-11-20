@@ -44,6 +44,10 @@ extern tablaControladoraSemaforos *tablasSemaforos;
 extern tablaIndicadoresProcesos *tablaProcesos;
 #endif
 
+#ifdef VM
+	extern TranslationEntry *tpi;
+#endif
+
 #ifdef FILESYS_NEEDED 		// FILESYS or FILESYS_STUB
 #include "filesys.h"
 extern FileSystem  *fileSystem;
