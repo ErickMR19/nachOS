@@ -82,9 +82,9 @@ AddrSpace::AddrSpace(OpenFile *executable)
                         // virtual memorys
 
 
-	// first, set up the translation
-	 ASSERT(numPages <= MapaMemoria.NumClear()); ya no es necesario que se cumpla
-  #endif
+  	// first, set up the translation
+  	 ASSERT(numPages <= MapaMemoria.NumClear());
+    #endif
 
 
   pageTable = new TranslationEntry[numPages];
