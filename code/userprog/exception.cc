@@ -534,13 +534,15 @@ void ExceptionHandler(ExceptionType which)
             }
             break;
         case PageFaultException:
+        {
             DEBUG('P',"Ha ocurrido un PageFaultException.\n");
             #ifdef VM
             unsigned int addressPageFault = machine->ReadRegister(39);
 
             currentThread->space->CargarDespuesDePFException(addressPageFault);
             #endif
-            break;
+            return;
+        }
         default:
             printf( "Unexpected exception %d\n", which );
             ASSERT(FALSE);

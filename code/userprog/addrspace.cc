@@ -271,18 +271,24 @@ int AddrSpace::escogerPaginaDelTLB(){
     bool buscando = true;
     int i;
     for(i = 0; i < TLBSize; ++i){
-      if(! machine->tlb[i].valid ) // si hay alguna sin usar, utilizar esa
+      if(! machine->tlb[i].valid ){ // si hay alguna sin usar, utilizar esa
+        DEBUG('P',"se asigna pagina sin usar %i\n",i);
         return i;
+      }
     }
     for(i = 0; i < TLBSize; ++i){
-      if(! machine->tlb[i].dirty ) // si hay alguna sin que no este "dirty", usar esa
+      if(! machine->tlb[i].dirty ){ // si hay alguna sin que no este "dirty", usar esa
+        DEBUG('P',"se asigna pagina usada pero limpia %i\n",i);
         return i;
+      }
     }
     i = rand() % TLBSize;
+    DEBUG('P',"asigna una pagina aleatoria, ya que todas estan sucias %i\n",i);
     pageTable[ machine->tlb[i].virtualPage ].dirty = true; // indico que la pagina que se va a quitar del TLB estaba "dirty"
     return i;
 }
 void AddrSpace::copiarAlTLB(int pagPageTable, int pagTLB){
+  DEBUG('P',"se copia en la pagina %i del TLB, la pagina %i del pageTable\n",pagTLB,pagPageTable);
   machine->tlb[pagTLB].virtualPage = pageTable[pagPageTable].virtualPage;
   machine->tlb[pagTLB].physicalPage = pageTable[pagPageTable].physicalPage;
   machine->tlb[pagTLB].dirty = pageTable[pagPageTable].dirty;
@@ -293,13 +299,17 @@ int ultimaPosicionAsignada=-1;
 
 int AddrSpace::encontrarPosicionDeMemoria(){
   int indice = MapaMemoria.Find();
+  DEBUG('P',"encontrar memoria devolvio %i\n",indice);
   if (indice == -1){ // si el indice es -1 no hay espacio disponible
+    DEBUG('P',"indice -1, debe usarse SecondChance\n");
     //inicio SecondChance
       int encontrado = false;
       indice = ultimaPosicionAsignada;
+      DEBUG('P',"al indice se asigna la ultima posicion asignada\n",%indice);
       while(! encontrado){
         ++indice;
         if( tpi[indice%NumPhysPages].use ){
+          DEBUG('P',"indice -1, debe usarse SecondChance\n");
           tpi[indice%NumPhysPages].use = false;
         }
         else{
@@ -320,29 +330,44 @@ int AddrSpace::encontrarPosicionDeMemoria(){
 }
 void AddrSpace::actualizarTLB(int paginaFaltante){
     int paginaTLB = escogerPaginaDelTLB();
+    DEBUG('P',"se va a actualizar la pagina %i del TLB, con la pagina %i del pageTable\n",paginaTLB,paginaFaltante);
     copiarAlTLB(paginaFaltante,paginaTLB);
 }
 void AddrSpace::CargarDespuesDePFException(int addressPageFault)
 {
     unsigned int paginaFaltante = addressPageFault / PageSize;
+    DEBUG('P',"Pagina Faltante: %u\n",paginaFaltante);
     if(pageTable[paginaFaltante].valid){ // está en memoria
+      DEBUG('P',"La pagina es valida, es decir esta en memoria\n");
       actualizarTLB(paginaFaltante);
     }
     else{ // no está en memoria
       int posicionDeMemoria = encontrarPosicionDeMemoria();
+      DEBUG('P',"La pagina no estaba cargada en memoria, se va a cargar en la posicion: %i \n",posicionDeMemoria);
       if(pageTable[paginaFaltante].dirty){ // la pagina de datos no inicializados y está sucia
+        DEBUG('P',"La pagina estaba sucia, se debe cargar del swap\n");
         //TODO: cargar del SWAP
       }
       else {
         if(paginaFaltante < numeroPaginasInicializadas){ // pagina de datos inicializados
+          DEBUG('P',"La pagina se debe leer del ejecutable\n");
           if (paginaFaltante < paginasCodigo) { //verifica si es el del segmento de codigo
-              ejecutable->ReadAt(&(machine->mainMemory[posicionDeMemoria*PageSize]), PageSize, noffH.code.inFileAddr+paginaFaltante*PageSize);
+              DEBUG('P',"La pagina es de codigo\n");
+              ejecutable->ReadAt(&(machine->mainMemory[posicionDeMemoria*PageSize]),
+                                 PageSize,
+                                 noffH.code.inFileAddr+paginaFaltante*PageSize
+                                 );
           }
           else{ // es del segmento de datos inicializados
-              ejecutable->ReadAt(&(machine->mainMemory[posicionDeMemoria*PageSize]), PageSize, noffH.initData.inFileAddr+(paginaFaltante-paginasCodigo)*PageSize);
+              DEBUG('P',"La pagina es de datos inicializados\n");
+              ejecutable->ReadAt(&(machine->mainMemory[posicionDeMemoria*PageSize]),
+                                 PageSize,
+                                 noffH.initData.inFileAddr+(paginaFaltante-paginasCodigo)*PageSize
+                                 );
           }
         }
         else{ // pagina de datos no inicializados y no está sucia
+          DEBUG('P',"La pagina es de pila\n");
           bzero(&(machine->mainMemory[posicionDeMemoria * PageSize]), PageSize);
           pageTable[paginaFaltante].physicalPage = posicionDeMemoria;
           pageTable[paginaFaltante].valid = true;
