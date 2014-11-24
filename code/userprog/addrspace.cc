@@ -339,10 +339,10 @@ void AddrSpace::CargarDespuesDePFException(int addressPageFault)
     DEBUG('P',"Pagina Faltante: %u\n",paginaFaltante);
     if(pageTable[paginaFaltante].valid){ // está en memoria
       DEBUG('P',"La pagina es valida, es decir esta en memoria\n");
-      actualizarTLB(paginaFaltante);
     }
     else{ // no está en memoria
       int posicionDeMemoria = encontrarPosicionDeMemoria();
+      pageTable[paginaFaltante].physicalPage = posicionDeMemoria;
       DEBUG('P',"La pagina no estaba cargada en memoria, se va a cargar en la posicion: %i \n",posicionDeMemoria);
       if(pageTable[paginaFaltante].dirty){ // la pagina de datos no inicializados y está sucia
         DEBUG('P',"La pagina estaba sucia, se debe cargar del swap\n");
@@ -372,9 +372,9 @@ void AddrSpace::CargarDespuesDePFException(int addressPageFault)
           pageTable[paginaFaltante].physicalPage = posicionDeMemoria;
           pageTable[paginaFaltante].valid = true;
           pageTable[paginaFaltante].use = true;
-          actualizarTLB(paginaFaltante);
         }
       }
+      actualizarTLB(paginaFaltante);
     }
 /*
     if(pageTable[paginaFaltante].valid == false && pageTable[paginaFaltante].dirty == true)
