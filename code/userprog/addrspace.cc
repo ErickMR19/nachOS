@@ -374,7 +374,6 @@ void AddrSpace::CargarDespuesDePFException(int addressPageFault)
           pageTable[paginaFaltante].use = true;
         }
       }
-      actualizarTLB(paginaFaltante);
     }
 /*
     if(pageTable[paginaFaltante].valid == false && pageTable[paginaFaltante].dirty == true)
@@ -387,5 +386,6 @@ void AddrSpace::CargarDespuesDePFException(int addressPageFault)
         pageTable[paginaFaltante].physicalPage = initialFind;
         coreMap[initialFind].virtualPage = paginaFaltante;
     }*/
+   actualizarTLB(paginaFaltante);
 }
 #endif
