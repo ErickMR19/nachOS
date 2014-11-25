@@ -305,7 +305,7 @@ int AddrSpace::encontrarPosicionDeMemoria(){
     //inicio SecondChance
       int encontrado = false;
       indice = ultimaPosicionAsignada;
-      DEBUG('P',"al indice se asigna la ultima posicion asignada\n",%indice);
+      DEBUG('P',"al indice se asigna la ultima posicion asignada: %i\n",indice);
       while(! encontrado){
         ++indice;
         if( tpi[indice%NumPhysPages].use ){
