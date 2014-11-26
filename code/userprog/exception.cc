@@ -97,6 +97,7 @@ void Nachos_Exit()
     DEBUG('E',"Entrando Syscall EXIT. By: '%s'\n",currentThread->getName());
     tablaProcesos->DeRegisterProcess(tablaProcesos->RegisterProcess(currentThread),0);
     DEBUG('E',"EXIT. Luego de despertar a los otros. By: '%s'\n",currentThread->getName());
+	  printf("Program exits with status: %d\n", machine->ReadRegister(4));
     currentThread->Finish();
     returnFromSystemCall();
 }
@@ -538,7 +539,7 @@ void ExceptionHandler(ExceptionType which)
             DEBUG('P',"\n\n\nHa ocurrido un PageFaultException.\n");
             #ifdef VM
             unsigned int addressPageFault = machine->ReadRegister(39);
-
+            DEBUG('P',"en la direccion: %i\n",machine->ReadRegister(39));
             currentThread->space->CargarDespuesDePFException(addressPageFault);
             #endif
             return;
