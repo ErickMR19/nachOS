@@ -266,25 +266,24 @@ void AddrSpace::RestoreState()
 }
 
 #ifdef VM
+class iteradorCircular{
+private:
+  int i;
+  int tope;
+
+public:
+  explicit iteradorCircular(int tope):tope(tope-1){}
+  operator int() const {return i;}
+  iteradorCircular& operator++(){if(i == tope) i=0; else ++i; return *this;}
+};
+iteradorCircular iteradorCircularTLB(TLBSize);
 int AddrSpace::escogerPaginaDelTLB(){
     srand( time(NULL) );
     bool buscando = true;
-    int i;
-    for(i = 0; i < TLBSize; ++i){
-      if(! machine->tlb[i].valid ){ // si hay alguna sin usar, utilizar esa
-        DEBUG('P',"se asigna pagina sin usar %i\n",i);
-        return i;
-      }
-    }
-    for(i = 0; i < TLBSize; ++i){
-      if(! machine->tlb[i].dirty ){ // si hay alguna sin que no este "dirty", usar esa
-        DEBUG('P',"se asigna pagina usada pero limpia %i\n",i);
-        return i;
-      }
-    }
-    i = rand() % TLBSize;
-    DEBUG('P',"asigna una pagina aleatoria, ya que todas estan sucias %i\n",i);
-    pageTable[ machine->tlb[i].virtualPage ].dirty = true; // indico que la pagina que se va a quitar del TLB estaba "dirty"
+    int i = iteradorCircularTLB;
+    DEBUG('P',"se asgina la posicion %i del TLB\n",i);
+    pageTable[ machine->tlb[i].virtualPage ].dirty = machine->tlb[i].dirty; // indico que la pagina que se va a quitar del TLB estaba "dirty"
+    ++iteradorCircularTLB;
     return i;
 }
 void AddrSpace::copiarAlTLB(int pagPageTable, int pagTLB){

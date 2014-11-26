@@ -535,7 +535,7 @@ void ExceptionHandler(ExceptionType which)
             break;
         case PageFaultException:
         {
-            DEBUG('P',"Ha ocurrido un PageFaultException.\n");
+            DEBUG('P',"\n\n\nHa ocurrido un PageFaultException.\n");
             #ifdef VM
             unsigned int addressPageFault = machine->ReadRegister(39);
 
