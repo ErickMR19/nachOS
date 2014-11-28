@@ -16,6 +16,7 @@
 #include "stats.h"
 #include "timer.h"
 #define MAX_FILES 120
+#define MAX_SWAPPAGES 125
 
 // Initialization and cleanup routines
 extern void Initialize(int argc, char **argv); 	// Initialization,
@@ -46,6 +47,8 @@ extern tablaIndicadoresProcesos *tablaProcesos;
 
 #ifdef VM
 	extern TranslationEntry *tpi;
+	extern BitMap * entradasSWAP;
+	extern OpenFile* SWAP;
 #endif
 
 #ifdef FILESYS_NEEDED 		// FILESYS or FILESYS_STUB

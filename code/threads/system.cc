@@ -43,6 +43,8 @@ tablaIndicadoresProcesos *tablaProcesos;
 
 #ifdef VM
 TranslationEntry *tpi;
+OpenFile* SWAP;
+BitMap * entradasSWAP;
 #endif
 
 #ifdef NETWORK
@@ -194,6 +196,16 @@ Initialize(int argc, char **argv)
 
 #ifdef VM
     tpi = new TranslationEntry[NumPhysPages];
+    // Crea el archivo para el SWAP
+    if( fileSystem->Create("SWAP",MAX_SWAPPAGES*PageSize) )
+        // Abre el archivo para el SWAP
+        SWAP = fileSystem->Open("SWAP");
+    else
+    {
+      printf("FALLO AL CREAR EL SWAP\n");
+      ASSERT(0);
+    }
+    entradasSWAP = new BitMap(MAX_SWAPPAGES);
 #endif
 
 #ifdef FILESYS
@@ -234,6 +246,8 @@ Cleanup()
 
 #ifdef VM
     delete tpi;
+    delete SWAP;
+    delete entradasSWAP;
 #endif
 
 #ifdef FILESYS_NEEDED

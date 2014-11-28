@@ -278,19 +278,29 @@ public:
 };
 iteradorCircular iteradorCircularTLB(TLBSize);
 int AddrSpace::escogerPaginaDelTLB(){
-    srand( time(NULL) );
-    bool buscando = true;
-    int i = iteradorCircularTLB;
-    DEBUG('P',"se asgina la posicion %i del TLB\n",i);
-    if( machine->tlb[i].dirty ){
-      DEBUG('P',"pagina %i del TLB sucia\n",i);
-      pageTable[ machine->tlb[i].virtualPage ].dirty = true;  // indico que la pagina que se va a quitar del TLB estaba "dirty"
-      if(pageTable[ machine->tlb[i].virtualPage ].dirty){
-        DEBUG('P',"por lo tanto pagina %i del pagetable tambien estara sucia, que esta en la posicion fisica: %i\n",machine->tlb[i].virtualPage,pageTable[ machine->tlb[i].virtualPage ].physicalPage);
-      }
+  int i = 0;
+  for(;i<TLBSize;++i){
+    if( ! machine->tlb[i].valid ){
+      iteradorCircularTLB = i;
+      ++iteradorCircularTLB;
+      return i;
     }
-    ++iteradorCircularTLB;
-    return i;
+  }
+
+  i = iteradorCircularTLB;
+  // indica a la posicion de memoria fisica que esta se va a reemplazar del TLB, que no estará en el TLB
+  tpi[ machine->tlb[i].physicalPage ].physicalPage = -1;
+  tpi[ machine->tlb[i].physicalPage ].valid = false;
+  DEBUG('P',"se asigna la posicion %i del TLB\n",i);
+  if( machine->tlb[i].dirty ){
+    DEBUG('P',"pagina %i del TLB sucia\n",i);
+    pageTable[ machine->tlb[i].virtualPage ].dirty = true;  // indico que la pagina que se va a quitar del TLB estaba "dirty"
+    if(pageTable[ machine->tlb[i].virtualPage ].dirty){
+      DEBUG('P',"por lo tanto pagina %i del pagetable tambien estara sucia, que esta en la posicion fisica: %i\n",machine->tlb[i].virtualPage,pageTable[ machine->tlb[i].virtualPage ].physicalPage);
+    }
+  }
+  ++iteradorCircularTLB;
+  return i;
 }
 void AddrSpace::copiarAlTLB(int pagPageTable, int pagTLB){
   DEBUG('P',"se copia en la pagina %i del TLB, la pagina %i del pageTable\n",pagTLB,pagPageTable);
@@ -299,8 +309,12 @@ void AddrSpace::copiarAlTLB(int pagPageTable, int pagTLB){
   machine->tlb[pagTLB].dirty = pageTable[pagPageTable].dirty;
   machine->tlb[pagTLB].valid = true;
   machine->tlb[pagTLB].use = true;
+  // indica a la posicion de memoria fisica que se va a colocar en el TLB
+  tpi[ pageTable[pagPageTable].physicalPage ].physicalPage = pagTLB;
+  tpi[ pageTable[pagPageTable].physicalPage ].valid = true;
 }
 int ultimaPosicionAsignada=-1;
+
 
 int AddrSpace::encontrarPosicionDeMemoria(){
   int indice = MapaMemoria.Find();
@@ -323,13 +337,28 @@ int AddrSpace::encontrarPosicionDeMemoria(){
           DEBUG('P',"SecondChance escogio: %i\n",indice);
           if( pageTable[ tpi[indice].virtualPage ].dirty ){
             DEBUG('P',"Debe copiarse al SWAP\n");
-            //TODO: copiarAlSWAP( tpi[indice].virtualPage );
+            int indiceSWAP = entradasSWAP->Find(); // es escoge un campo del SWAP;
+            ASSERT(indiceSWAP != -1); //NO HAY CAMPO EN EL SWAP
+            pageTable[ tpi[indice].virtualPage ].physicalPage = indiceSWAP;
+            SWAP->WriteAt( ( machine->mainMemory + ( indice*PageSize ) ),
+                           PageSize,
+                           indiceSWAP*PageSize
+                         );
+            DEBUG('P',"Se copio en la posicion %i del SWAP lo que se encuentra en la posicion %i de la memoria\n",indiceSWAP,indice);
           }
-          pageTable[ tpi[indice].virtualPage ].physicalPage = -1;
+          else{
+            DEBUG('P',"No debe copiarse al SWAP\n");
+            pageTable[ tpi[indice].virtualPage ].physicalPage = -1;
+          }
           pageTable[ tpi[indice].virtualPage ].valid = false;
           pageTable[ tpi[indice].virtualPage ].use = false;
         }
       }
+  }
+  // Si la pagina que se va a quitar de memoria estaba en el TLB, se invalida dicha posicion
+  if(tpi[indice].valid)
+  {
+    machine->tlb[ tpi[indice].physicalPage ].valid = false;
   }
   tpi[indice].use = true;
   ultimaPosicionAsignada = indice;
@@ -354,7 +383,16 @@ void AddrSpace::CargarDespuesDePFException(int addressPageFault)
       DEBUG('P',"La pagina no estaba cargada en memoria, se va a cargar en la posicion: %i \n",posicionDeMemoria);
       if(pageTable[paginaFaltante].dirty){ // la pagina de datos no inicializados y está sucia
         DEBUG('P',"La pagina estaba sucia, se debe cargar del swap\n");
-        //TODO: cargar del SWAP
+        if( pageTable[paginaFaltante].physicalPage == -1 ){
+          printf("ERROR FATAL: LA PAGINA NO SE GUARDO EN EL SWAP\n");
+          ASSERT(0);
+        }
+        SWAP->ReadAt( &(machine->mainMemory[PageSize * posicionDeMemoria]),
+                             PageSize,
+                             PageSize * pageTable[paginaFaltante].physicalPage
+                           );
+        //Se indica que dicha posicon del SWAP ya no se va a utilizar
+        entradasSWAP->Clear(pageTable[paginaFaltante].physicalPage);
       }
       else {
         if(paginaFaltante < numeroPaginasInicializadas){ // pagina de datos inicializados
@@ -383,17 +421,6 @@ void AddrSpace::CargarDespuesDePFException(int addressPageFault)
       pageTable[paginaFaltante].valid = true;
       pageTable[paginaFaltante].use = true;
     }
-/*
-    if(pageTable[paginaFaltante].valid == false && pageTable[paginaFaltante].dirty == true)
-    {
-        OpenFile* workingSwap = fileSystem->Open("SWAP");
-        int initialFind = mybit->Find();
-        workingSwap->ReadAt(&(machine->mainMemory[PageSize * paginaFaltante]), PageSize * initialFind);
-
-        pageTable[paginaFaltante].valid = true;
-        pageTable[paginaFaltante].physicalPage = initialFind;
-        coreMap[initialFind].virtualPage = paginaFaltante;
-    }*/
    actualizarTLB(paginaFaltante);
 }
 #endif
