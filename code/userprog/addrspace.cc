@@ -275,6 +275,7 @@ public:
   explicit iteradorCircular(int tope):tope(tope-1){}
   operator int() const {return i;}
   iteradorCircular& operator++(){if(i == tope) i=0; else ++i; return *this;}
+  iteradorCircular& operator=(int p){i=p; return *this;}
 };
 iteradorCircular iteradorCircularTLB(TLBSize);
 int AddrSpace::escogerPaginaDelTLB(){
