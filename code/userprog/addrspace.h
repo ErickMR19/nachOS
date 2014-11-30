@@ -16,6 +16,7 @@
 #include "copyright.h"
 #include "filesys.h"
 #include "noff.h"
+#include "bitmap.h"
 
 #define UserStackSize	1024 	// increase this as necessary!
 
@@ -45,6 +46,7 @@ class AddrSpace {
   public:
     void CargarDespuesDePFException(int addressPageFault);
   private:
+    BitMap * BMCompulsoryMisses;
     void actualizarTLB(int paginaFaltante);
     int encontrarPosicionDeMemoria();
     void copiarAlTLB(int pagPageTable, int pagTLB);
